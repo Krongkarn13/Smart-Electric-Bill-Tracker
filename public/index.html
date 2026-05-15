@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Electric Bill Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1117;--bg2:#171a23;--bg3:#1e2130;--bg4:#252840;
+    --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+    --text:#f0f2ff;--text2:#9095b0;--text3:#5c6180;
+    --accent:#4f8ef7;--accent2:#3d6fd4;
+    --green:#34d399;--green-bg:rgba(52,211,153,0.12);
+    --red:#f87171;--red-bg:rgba(248,113,113,0.12);
+    --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.12);
+    --radius:12px;--radius-sm:8px;
+    --font:'IBM Plex Sans Thai',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh;}
+
+  /* LAYOUT */
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);padding:1.5rem 0;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:width .2s;}
+  .sidebar-logo{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem;}
+  .logo-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:8px;}
+  .sidebar-logo h1{font-size:13px;font-weight:600;line-height:1.3;}
+  .sidebar-logo p{font-size:11px;color:var(--text3);}
+  .nav-section{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:8px 1.25rem 4px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 1.25rem;color:var(--text2);cursor:pointer;transition:all .15s;font-size:13px;border-left:2px solid transparent;user-select:none;}
+  .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.04);}
+  .nav-item.active{color:var(--accent);background:rgba(79,142,247,0.08);border-left-color:var(--accent);}
+  .nav-icon{font-size:16px;width:20px;text-align:center;}
+  .main{margin-left:220px;padding:2rem;min-height:100vh;transition:margin .2s;}
+  .page{display:none;}.page.active{display:block;}
+  .page-header{margin-bottom:1.75rem;}
+  .page-header h2{font-size:22px;font-weight:600;}
+  .page-header p{font-size:13px;color:var(--text2);margin-top:3px;}
+
+  /* CARDS */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1.25rem;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+  .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .ct-icon{color:var(--accent);}
+
+  /* METRICS */
+  .metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.25rem;}
+  .metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;position:relative;overflow:hidden;}
+  .metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .metric-card.blue::before{background:var(--accent);}
+  .metric-card.green::before{background:var(--green);}
+  .metric-card.amber::before{background:var(--amber);}
+  .metric-card.red::before{background:var(--red);}
+  .metric-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .metric-value{font-size:26px;font-weight:600;line-height:1;}
+  .metric-value.blue{color:var(--accent);}.metric-value.green{color:var(--green);}.metric-value.amber{color:var(--amber);}.metric-value.red{color:var(--red);}
+  .metric-unit{font-size:12px;color:var(--text3);margin-top:4px;}
+  .metric-badge{display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:500;margin-top:5px;}
+  .badge-green{background:var(--green-bg);color:var(--green);}
+  .badge-red{background:var(--red-bg);color:var(--red);}
+  .badge-amber{background:var(--amber-bg);color:var(--amber);}
+  .badge-blue{background:rgba(79,142,247,0.15);color:var(--accent);}
+
+  /* FORM */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .form-grid.cols3{grid-template-columns:1fr 1fr 1fr;}.form-grid.cols1{grid-template-columns:1fr;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.04em;}
+  .field input,.field select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:9px 12px;transition:border-color .15s;width:100%;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,0.15);}
+  .field select option{background:var(--bg3);}
+
+  /* BUTTONS */
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;}
+  .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:var(--accent2);}
+  .btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,113,113,0.2);padding:6px 10px;font-size:12px;}
+  .btn-danger:hover{background:rgba(248,113,113,0.2);}
+  .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+  .btn-ghost:hover{background:var(--bg3);color:var(--text);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);}
+  tbody td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:rgba(255,255,255,0.02);}
+
+  /* MISC */
+  .progress-wrap{background:var(--bg3);border-radius:99px;height:8px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:99px;transition:width .5s ease;}
+  .alert{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:1.25rem;border:1px solid;animation:fadeIn .3s ease;}
+  .alert-amber{background:var(--amber-bg);color:var(--amber);border-color:rgba(251,191,36,0.25);}
+  .alert-red{background:var(--red-bg);color:var(--red);border-color:rgba(248,113,113,0.25);}
+  .alert-green{background:var(--green-bg);color:var(--green);border-color:rgba(52,211,153,0.25);}
+  .alert-blue{background:rgba(79,142,247,0.1);color:var(--accent);border-color:rgba(79,142,247,0.25);}
+  .calc-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;margin:10px 0;color:var(--text2);display:none;}
+  .calc-box strong{color:var(--text);}.calc-box .highlight{color:var(--accent);font-weight:600;}
+  .rank-bar-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .rank-bar-row:last-child{border-bottom:none;}
+  .rank-num{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+  .r1{background:rgba(251,191,36,0.2);color:var(--amber);}.r2{background:rgba(156,163,175,0.2);color:#9ca3af;}.r3{background:rgba(251,146,60,0.2);color:#fb923c;}.rn{background:var(--bg3);color:var(--text3);}
+  .empty{text-align:center;padding:3rem;color:var(--text3);}
+  .empty-icon{font-size:40px;margin-bottom:12px;opacity:.4;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+  .divider{border:none;border-top:1px solid var(--border);margin:1rem 0;}
+  .sim-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .sim-row:last-child{border-bottom:none;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+  .fade-in{animation:fadeIn .3s ease;}
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+
+  /* LOADING OVERLAY */
+  .loading-overlay{position:fixed;inset:0;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);}
+  .spinner{width:40px;height:40px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* BOTTOM NAV (mobile) */
+  .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:200;padding:0 4px;}
+  .bottom-nav-inner{display:flex;}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px 12px;cursor:pointer;color:var(--text3);font-size:10px;gap:3px;transition:color .15s;border:none;background:none;font-family:var(--font);}
+  .bn-item.active{color:var(--accent);}
+  .bn-icon{font-size:20px;}
+
+  /* RESPONSIVE */
+  @media(max-width:768px){
+    .sidebar{display:none;}
+    .main{margin-left:0;padding:1rem;padding-bottom:80px;}
+    .metric-grid{grid-template-columns:repeat(2,1fr);}
+    .form-grid{grid-template-columns:1fr;}
+    .form-grid.cols3{grid-template-columns:1fr 1fr;}
+    .grid2{grid-template-columns:1fr;}
+    .bottom-nav{display:flex;}
+    .page-header h2{font-size:18px;}
+  }
+  @media(max-width:400px){
+    .metric-grid{grid-template-columns:1fr 1fr;}
+    .metric-value{font-size:20px;}
+  }
+
+  /* CONNECTION STATUS */
+  .conn-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:99px;margin-bottom:8px;}
+  .conn-dot{width:7px;height:7px;border-radius:50%;}
+  .conn-ok .conn-dot{background:var(--green);}.conn-ok{color:var(--green);background:var(--green-bg);}
+  .conn-err .conn-dot{background:var(--red);}.conn-err{color:var(--red);background:var(--red-bg);}
+  .conn-loading .conn-dot{background:var(--amber);animation:blink 1s infinite;}.conn-loading{color:var(--amber);background:var(--amber-bg);}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- SIDEBAR (desktop) -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <h1>Electric Bill<br>Tracker</h1>
+      <p>Firebase Edition</p>
+    </div>
+    <div class="nav-section">หลัก</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span><span>แดชบอร์ด</span></div>
+    <div class="nav-item" onclick="showPage('meter')"><span class="nav-icon">🔢</span><span>จดมิเตอร์</span></div>
+    <div class="nav-section">วิเคราะห์</div>
+    <div class="nav-item" onclick="showPage('appliances')"><span class="nav-icon">🔌</span><span>เครื่องใช้ไฟฟ้า</span></div>
+    <div class="nav-item" onclick="showPage('simulate')"><span class="nav-icon">💡</span><span>จำลองประหยัด</span></div>
+    <div class="nav-section">ระบบ</div>
+    <div class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙️</span><span>ตั้งค่า</span></div>
+    <div style="margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border);">
+      <div id="sidebar-conn" class="conn-badge conn-loading"><span class="conn-dot"></span>กำลังเชื่อมต่อ…</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:4px;">v1.0 · Firebase + Express</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <h2>แดชบอร์ด</h2>
+        <p id="dash-subtitle">กำลังโหลดข้อมูล…</p>
+      </div>
+      <div id="alert-zone"></div>
+      <div class="metric-grid" id="metric-grid">
+        <div class="metric-card blue"><div class="metric-label">ค่าไฟสะสม</div><div class="metric-value blue">—</div></div>
+        <div class="metric-card amber"><div class="metric-label">คาดการณ์สิ้นเดือน</div><div class="metric-value amber">—</div></div>
+        <div class="metric-card green"><div class="metric-label">เฉลี่ย/วัน</div><div class="metric-value green">—</div></div>
+        <div class="metric-card blue"><div class="metric-label">งบคงเหลือ</div><div class="metric-value">—</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="ct-icon">🎯</span> เทียบงบประมาณ</div><span id="budget-pct-badge" class="metric-badge badge-blue">0%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:6px;">
+            <span id="budget-spent-lbl">สะสม 0 บาท</span><span id="budget-total-lbl">งบ 2,500 บาท</span>
+          </div>
+          <div class="progress-wrap"><div class="progress-fill" id="budget-fill" style="width:0%;background:var(--accent);"></div></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:8px;" id="budget-remain-lbl"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="ct-icon">📈</span> เทียบเดือนก่อน</div></div>
+          <div id="comparison-zone"><div class="empty" style="padding:1rem 0;"><p>ต้องการข้อมูลอย่างน้อย 3 เดือน</p></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="ct-icon">📉</span> ประวัติค่าไฟรายเดือน</div></div>
+        <div style="position:relative;height:240px;" id="history-chart-wrap"><canvas id="historyChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="ct-icon">🔌</span> Top 5 เครื่องใช้ไฟฟ้ากินไฟสูงสุด</div></div>
+        <div id="top5-zone"></div>
+      </div>
+    </div>
+
+    <!-- METER -->
+    <div id="page-meter" class="page">
+      <div class="page-header"><h2>จดมิเตอร์ไฟฟ้า</h2><p>บันทึกเลขมิเตอร์รายเดือน</p></div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem;"><span class="ct-icon">➕</span> บันทึกเลขมิเตอร์</div>
+        <div class="form-grid">
+          <div class="field"><label>วันที่จดมิเตอร์</label><input type="date" id="m-date"></div>
+          <div class="field"><label>เลขมิเตอร์ (kWh)</label><input type="number" id="m-reading" placeholder="12345" oninput="previewMeter()"></div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>ค่าไฟที่จ่ายจริง (บาท)</label><input type="number" id="m-actual" placeholder="ถ้ามีใบเสร็จ" step="0.01"></div>
+          <div class="field"><label>ค่า Ft (บาท/หน่วย)</label><input type="number" id="m-ft" placeholder="0.00" step="0.0001"></div>
+        </div>
+        <div class="form-grid cols1">
+          <div class="field"><label>หมายเหตุ</label><input type="text" id="m-note" placeholder="เช่น มกราคม 2568"></div>
+        </div>
+        <div class="calc-box" id="m-calc-box"></div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button class="btn btn-primary" id="btn-save-meter" onclick="saveMeter()">💾 บันทึก</button>
+          <button class="btn btn-ghost" onclick="clearMeterForm()">🗑 ล้างฟอร์ม</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="ct-icon">📋</span> ประวัติมิเตอร์</div>
+          <button class="btn btn-ghost" onclick="exportMeterCSV()" style="font-size:12px;padding:6px 12px;">📥 Export CSV</button>
+        </div>
+        <div class="table-wrap" id="meter-table-wrap"><div class="empty"><div class="empty-icon">🔢</div><p>กำลังโหลด…</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="ct-icon">🔮</span> คำนวณค่าไฟตอนนี้</div></div>
+        <div class="form-grid">
+          <div class="field"><label>เลขมิเตอร์ปัจจุบัน</label><input type="number" id="calc-cur" placeholder="12345" oninput="calcFromMeter()"></div>
+          <div class="field"><label>เลขมิเตอร์อ้างอิง</label><input type="number" id="calc-prev" placeholder="ดึงอัตโนมัติ" oninput="calcFromMeter()"></div>
+        </div>
+        <div class="calc-box" id="calc-result-box" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- APPLIANCES -->
+    <div id="page-appliances" class="page">
+      <div class="page-header"><h2>เครื่องใช้ไฟฟ้า</h2><p>คำนวณค่าไฟแต่ละชิ้น</p></div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem;"><span class="ct-icon">➕</span> เพิ่มเครื่องใช้ไฟฟ้า</div>
+        <div class="form-grid">
+          <div class="field"><label>ชื่ออุปกรณ์</label><input type="text" id="a-name" placeholder="เช่น แอร์ห้องนอน"></div>
+          <div class="field"><label>Template สำเร็จรูป</label>
+            <select id="a-template" onchange="applyTemplate()">
+              <option value="">— เลือก —</option>
+              <optgroup label="ความเย็น">
+                <option value="air1">แอร์ 9,000 BTU (800W)</option>
+                <option value="air2">แอร์ 12,000 BTU (1,200W)</option>
+                <option value="air3">แอร์ 18,000 BTU (1,800W)</option>
+                <option value="fridge">ตู้เย็น 2 ประตู (150W)</option>
+              </optgroup>
+              <optgroup label="ความบันเทิง">
+                <option value="tv32">ทีวี 32 นิ้ว (60W)</option>
+                <option value="tv55">ทีวี 55 นิ้ว (150W)</option>
+                <option value="pc">คอมพิวเตอร์ตั้งโต๊ะ (300W)</option>
+                <option value="laptop">โน้ตบุ๊ค (45W)</option>
+              </optgroup>
+              <optgroup label="ครัวเรือน">
+                <option value="washer">เครื่องซักผ้า (500W)</option>
+                <option value="water">เครื่องทำน้ำอุ่น (3,500W)</option>
+                <option value="micro">ไมโครเวฟ (1,000W)</option>
+                <option value="rice">หม้อหุงข้าว (600W)</option>
+                <option value="iron">เตารีด (1,000W)</option>
+              </optgroup>
+              <optgroup label="อื่นๆ">
+                <option value="router">Router (15W)</option>
+                <option value="fan">พัดลม (60W)</option>
+                <option value="lamp">หลอด LED (10W)</option>
+                <option value="ev">EV Charger (7,000W)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid cols3">
+          <div class="field"><label>กำลังไฟ (W)</label><input type="number" id="a-watt" placeholder="1200" oninput="previewAppliance()"></div>
+          <div class="field"><label>จำนวนเครื่อง</label><input type="number" id="a-qty" value="1" min="1" oninput="previewAppliance()"></div>
+          <div class="field"><label>หมวดหมู่</label>
+            <select id="a-cat">
+              <option>ความเย็น</option><option>ความบันเทิง</option>
+              <option>ครัวเรือน</option><option>สำนักงาน</option><option>อื่นๆ</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>ชั่วโมง/วัน</label><input type="number" id="a-hours" placeholder="8" step="0.5" oninput="previewAppliance()"></div>
+          <div class="field"><label>วัน/เดือน</label><input type="number" id="a-days" value="30" min="1" max="31" oninput="previewAppliance()"></div>
+        </div>
+        <div class="calc-box" id="a-preview-box"></div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button class="btn btn-primary" id="btn-save-app" onclick="saveAppliance()">⚡ เพิ่มอุปกรณ์</button>
+          <button class="btn btn-ghost" onclick="clearAppForm()">🗑 ล้างฟอร์ม</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="ct-icon">🏆</span> จัดอันดับ</div>
+          <span id="app-total-badge" style="font-size:13px;color:var(--accent);font-weight:600;"></span>
+        </div>
+        <div id="appliance-list-zone"><div class="empty"><div class="empty-icon">🔌</div><p>กำลังโหลด…</p></div></div>
+      </div>
+    </div>
+
+    <!-- SIMULATE -->
+    <div id="page-simulate" class="page">
+      <div class="page-header"><h2>จำลองการประหยัดไฟ</h2><p>ปรับชั่วโมงใช้งานและดูผล Real-time</p></div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem;"><span class="ct-icon">🎛</span> ปรับการใช้งาน</div>
+        <div id="sim-controls"></div>
+        <hr class="divider">
+        <div id="sim-summary"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="ct-icon">📊</span> เปรียบเทียบก่อน-หลัง</div></div>
+        <div style="position:relative;height:220px;"><canvas id="simChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header"><h2>ตั้งค่า</h2><p>อัตราค่าไฟ, งบประมาณ และการเชื่อมต่อ</p></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:1rem;"><span class="ct-icon">🔗</span> การเชื่อมต่อ API</div>
+          <div class="field" style="margin-bottom:12px;">
+            <label>API Base URL</label>
+            <input type="text" id="s-api-url" placeholder="http://localhost:3000" oninput="saveApiUrl()">
+          </div>
+          <div class="field" style="margin-bottom:12px;">
+            <label>User ID (สำหรับแยกข้อมูล)</label>
+            <input type="text" id="s-uid" placeholder="user123" oninput="saveUid()">
+          </div>
+          <div id="conn-status-card" class="conn-badge conn-loading" style="margin-bottom:8px;"><span class="conn-dot"></span>กำลังตรวจสอบ…</div>
+          <button class="btn btn-ghost" onclick="testConnection()" style="font-size:12px;padding:6px 14px;">🔄 ทดสอบการเชื่อมต่อ</button>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:1rem;"><span class="ct-icon">💰</span> อัตราค่าไฟ</div>
+          <div class="field" style="margin-bottom:12px;"><label>ค่าไฟต่อหน่วย (บาท/kWh)</label><input type="number" id="s-rate" value="4.50" step="0.01"></div>
+          <div class="field" style="margin-bottom:12px;"><label>งบประมาณ/เดือน (บาท)</label><input type="number" id="s-budget" value="2500"></div>
+          <div class="field" style="margin-bottom:12px;"><label>VAT (%)</label><input type="number" id="s-vat" value="7" step="0.1"></div>
+          <div class="field" style="margin-bottom:12px;"><label>วันเริ่มรอบบิล</label><input type="number" id="s-billstart" value="1" min="1" max="28"></div>
+          <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
+        </div>
+      </div>
+      <div class="card" style="border-color:rgba(248,113,113,0.3);">
+        <div class="card-title" style="margin-bottom:1rem;color:var(--red);"><span>⚠️</span> จัดการข้อมูล</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-danger" onclick="clearMeters()" style="padding:9px 14px;font-size:13px;">🗑 ล้างมิเตอร์</button>
+          <button class="btn btn-danger" onclick="clearAppliances()" style="padding:9px 14px;font-size:13px;">🗑 ล้างเครื่องใช้ไฟฟ้า</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" onclick="showPage('dashboard')"><span class="bn-icon">📊</span>แดชบอร์ด</button>
+    <button class="bn-item" onclick="showPage('meter')"><span class="bn-icon">🔢</span>มิเตอร์</button>
+    <button class="bn-item" onclick="showPage('appliances')"><span class="bn-icon">🔌</span>อุปกรณ์</button>
+    <button class="bn-item" onclick="showPage('simulate')"><span class="bn-icon">💡</span>จำลอง</button>
+    <button class="bn-item" onclick="showPage('settings')"><span class="bn-icon">⚙️</span>ตั้งค่า</button>
+  </div>
+</nav>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// CONFIG & STATE
+// ─────────────────────────────────────────
+let API_URL = localStorage.getItem('api_url') || 'http://localhost:3000';
+let USER_ID = localStorage.getItem('uid')     || 'default_user';
+
+let state = {
+  settings:   { rate:4.50, budget:2500, vat:7, billStart:1 },
+  meters:     [],
+  appliances: [],
+  connected:  false,
+};
+
+let histChart = null, simChart = null;
+
+// ─────────────────────────────────────────
+// API LAYER
+// ─────────────────────────────────────────
+async function api(method, path, body) {
+  const url = `${API_URL}${path}?uid=${USER_ID}`;
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify({ ...body, uid: USER_ID });
+  const res  = await fetch(url, opts);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'API Error');
+  return json.data;
+}
+
+async function GET(path)        { return api('GET',    path); }
+async function POST(path, body) { return api('POST',   path, body); }
+async function PUT(path, body)  { return api('PUT',    path, body); }
+async function DEL(path)        { return api('DELETE', path); }
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+async function init() {
+  // ตั้งค่า UI จาก localStorage
+  document.getElementById('s-api-url').value = API_URL;
+  document.getElementById('s-uid').value     = USER_ID;
+
+  await testConnection();
+  if (state.connected) await loadAllData();
+}
+
+async function loadAllData() {
+  showLoading(true);
+  try {
+    const [settings, meters, appliances] = await Promise.all([
+      GET('/api/settings'),
+      GET('/api/meters'),
+      GET('/api/appliances'),
+    ]);
+    state.settings   = settings;
+    state.meters     = meters;
+    state.appliances = appliances;
+    applySettingsToUI();
+    renderDashboard();
+    renderMeterTable();
+    fillPrevMeter();
+    renderApplianceList();
+  } catch(e) {
+    showToast('❌ โหลดข้อมูลไม่สำเร็จ: ' + e.message, 'red');
+  }
+  showLoading(false);
+}
+
+async function testConnection() {
+  setConnStatus('loading', 'กำลังเชื่อมต่อ…');
+  try {
+    const r = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error('Server error');
+    state.connected = true;
+    setConnStatus('ok', 'เชื่อมต่อแล้ว ✓');
+    showToast('✅ เชื่อมต่อ API สำเร็จ', 'green');
+  } catch(e) {
+    state.connected = false;
+    setConnStatus('err', 'เชื่อมต่อไม่ได้');
+    showToast('❌ เชื่อมต่อ API ไม่ได้ — ตรวจสอบ URL และ Server', 'red');
+  }
+}
+
+function setConnStatus(type, msg) {
+  const els = [document.getElementById('sidebar-conn'), document.getElementById('conn-status-card')];
+  els.forEach(el => {
+    if (!el) return;
+    el.className = `conn-badge conn-${type}`;
+    el.innerHTML = `<span class="conn-dot"></span>${msg}`;
+  });
+}
+
+// ─────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────
+const PAGES = ['dashboard','meter','appliances','simulate','settings'];
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const idx = PAGES.indexOf(name);
+  document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
+  document.querySelectorAll('.bn-item')[idx]?.classList.add('active');
+  if (name === 'dashboard')  renderDashboard();
+  if (name === 'meter')      { renderMeterTable(); fillPrevMeter(); }
+  if (name === 'appliances') renderApplianceList();
+  if (name === 'simulate')   renderSimulator();
+}
+
+// ─────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────
+function applySettingsToUI() {
+  document.getElementById('s-rate').value     = state.settings.rate;
+  document.getElementById('s-budget').value   = state.settings.budget;
+  document.getElementById('s-vat').value      = state.settings.vat;
+  document.getElementById('s-billstart').value = state.settings.billStart;
+}
+
+async function saveSettings() {
+  const payload = {
+    rate:      parseFloat(document.getElementById('s-rate').value)     || 4.50,
+    budget:    parseFloat(document.getElementById('s-budget').value)   || 2500,
+    vat:       parseFloat(document.getElementById('s-vat').value)      || 7,
+    billStart: parseInt(document.getElementById('s-billstart').value)  || 1,
+  };
+  showLoading(true);
+  try {
+    state.settings = await PUT('/api/settings', payload);
+    showToast('✅ บันทึกการตั้งค่าแล้ว', 'green');
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  showLoading(false);
+}
+
+function saveApiUrl() {
+  API_URL = document.getElementById('s-api-url').value.trim().replace(/\/$/,'');
+  localStorage.setItem('api_url', API_URL);
+}
+function saveUid() {
+  USER_ID = document.getElementById('s-uid').value.trim() || 'default_user';
+  localStorage.setItem('uid', USER_ID);
+}
+
+// ─────────────────────────────────────────
+// METERS
+// ─────────────────────────────────────────
+function fillPrevMeter() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('m-date').value = today;
+  if (state.meters.length) {
+    const last = state.meters[state.meters.length-1];
+    document.getElementById('calc-prev').placeholder = 'มิเตอร์ล่าสุด: ' + last.reading.toLocaleString();
+  }
+}
+
+function previewMeter() {
+  const cur = parseFloat(document.getElementById('m-reading').value);
+  if (!cur || !state.meters.length) return;
+  const prev = state.meters[state.meters.length-1];
+  const used = cur - prev.reading;
+  if (used <= 0) { document.getElementById('m-calc-box').style.display='none'; return; }
+  const cost = used * state.settings.rate;
+  const box = document.getElementById('m-calc-box');
+  box.style.display = 'block';
+  box.innerHTML = `มิเตอร์ก่อนหน้า: <strong>${prev.reading.toLocaleString()}</strong> → หน่วยที่ใช้: <strong>${used.toFixed(0)} kWh</strong> → ค่าไฟ: <span class="highlight">${cost.toFixed(0)} บาท</span>`;
+}
+
+async function saveMeter() {
+  if (!state.connected) { showToast('❌ ยังไม่ได้เชื่อมต่อ API', 'red'); return; }
+  const date    = document.getElementById('m-date').value;
+  const reading = parseFloat(document.getElementById('m-reading').value);
+  if (!date || !reading) { showToast('⚠️ กรุณากรอกวันที่และเลขมิเตอร์', 'amber'); return; }
+  const payload = {
+    date, reading,
+    actual: parseFloat(document.getElementById('m-actual').value) || 0,
+    ft:     parseFloat(document.getElementById('m-ft').value)     || 0,
+    note:   document.getElementById('m-note').value.trim(),
+  };
+  setBtn('btn-save-meter', true, '💾 กำลังบันทึก…');
+  try {
+    const saved = await POST('/api/meters', payload);
+    state.meters.push(saved);
+    state.meters.sort((a,b) => new Date(a.date) - new Date(b.date));
+    showToast('✅ บันทึกมิเตอร์แล้ว', 'green');
+    clearMeterForm();
+    renderMeterTable();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  setBtn('btn-save-meter', false, '💾 บันทึก');
+}
+
+async function deleteMeter(id) {
+  if (!confirm('ลบรายการนี้?')) return;
+  showLoading(true);
+  try {
+    await DEL('/api/meters/' + id);
+    state.meters = state.meters.filter(m => m.id !== id);
+    showToast('🗑 ลบแล้ว', 'amber');
+    renderMeterTable();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  showLoading(false);
+}
+
+function clearMeterForm() {
+  ['m-reading','m-actual','m-ft','m-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-calc-box').style.display = 'none';
+}
+
+function renderMeterTable() {
+  const wrap = document.getElementById('meter-table-wrap');
+  if (!state.meters.length) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-icon">🔢</div><p>ยังไม่มีประวัติมิเตอร์</p></div>'; return;
+  }
+  const rows = [...state.meters].reverse().map((m, ri) => {
+    const realIdx = state.meters.length - 1 - ri;
+    const prev    = realIdx > 0 ? state.meters[realIdx-1] : null;
+    const used    = prev ? (m.reading - prev.reading) : null;
+    const cost    = used !== null ? (used * state.settings.rate).toFixed(0) : '—';
+    const display = m.actual ? m.actual.toFixed(0)+' บาท' : (used !== null ? '~'+cost+' บาท' : '—');
+    const trend   = prev && used !== null && realIdx > 1 ? (() => {
+      const pp = state.meters[realIdx-2];
+      const pu = prev.reading - pp.reading;
+      if (used > pu*1.1) return '<span class="metric-badge badge-red">▲ สูงขึ้น</span>';
+      if (used < pu*0.9) return '<span class="metric-badge badge-green">▼ ลดลง</span>';
+      return '<span class="metric-badge badge-blue">≈ ปกติ</span>';
+    })() : '';
+    return `<tr>
+      <td>${m.date}</td>
+      <td style="font-weight:600;">${m.reading.toLocaleString()}</td>
+      <td>${used !== null ? used.toFixed(0)+' kWh' : '—'}</td>
+      <td style="color:${m.actual?'var(--green)':'var(--text2)'};">${display}</td>
+      <td>${trend}</td>
+      <td style="font-size:12px;color:var(--text3);">${m.note||''}</td>
+      <td><button class="btn btn-danger" onclick="deleteMeter('${m.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `<table><thead><tr><th>วันที่</th><th>มิเตอร์</th><th>หน่วย</th><th>ค่าไฟ</th><th>เทียบ</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function calcFromMeter() {
+  const cur  = parseFloat(document.getElementById('calc-cur').value);
+  let   prev = parseFloat(document.getElementById('calc-prev').value);
+  const box  = document.getElementById('calc-result-box');
+  if (!prev && state.meters.length) prev = state.meters[state.meters.length-1].reading;
+  if (!cur || !prev || cur <= prev) { box.style.display='none'; return; }
+  const used   = cur - prev;
+  const base   = used * state.settings.rate;
+  const vat    = base * (state.settings.vat / 100);
+  const total  = base + vat;
+  const today  = new Date();
+  const dim    = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const day    = today.getDate();
+  const start  = state.settings.billStart;
+  const elapsed= day >= start ? day-start+1 : dim-start+day+1;
+  const forecast = (total / Math.max(1,elapsed)) * dim;
+  box.style.display = 'block';
+  box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;">
+    <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;">หน่วย</div><div style="font-size:20px;font-weight:600;">${used.toFixed(0)}</div><div style="font-size:11px;color:var(--text3);">kWh</div></div>
+    <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;">ก่อน VAT</div><div style="font-size:20px;font-weight:600;">${base.toFixed(0)}</div><div style="font-size:11px;color:var(--text3);">บาท</div></div>
+    <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;">รวม VAT</div><div style="font-size:20px;font-weight:600;color:var(--accent);">${total.toFixed(0)}</div><div style="font-size:11px;color:var(--text3);">บาท</div></div>
+    <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;">คาดสิ้นเดือน</div><div style="font-size:20px;font-weight:600;color:var(--amber);">${forecast.toFixed(0)}</div><div style="font-size:11px;color:var(--text3);">บาท</div></div>
+  </div>`;
+}
+
+function exportMeterCSV() {
+  if (!state.meters.length) { showToast('ไม่มีข้อมูล', 'amber'); return; }
+  const rows = [['วันที่','เลขมิเตอร์','หน่วย','ค่าไฟจริง','Ft','หมายเหตุ']];
+  state.meters.forEach((m,i) => {
+    const prev = i > 0 ? state.meters[i-1] : null;
+    rows.push([m.date, m.reading, prev?(m.reading-prev.reading):'', m.actual||'', m.ft||'', m.note||'']);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'meter_history.csv';
+  a.click();
+  showToast('📥 Export CSV สำเร็จ', 'green');
+}
+
+// ─────────────────────────────────────────
+// APPLIANCES
+// ─────────────────────────────────────────
+const TEMPLATES = {
+  air1:{name:'แอร์ 9,000 BTU',watt:800,hours:8,days:30,cat:'ความเย็น'},
+  air2:{name:'แอร์ 12,000 BTU',watt:1200,hours:8,days:30,cat:'ความเย็น'},
+  air3:{name:'แอร์ 18,000 BTU',watt:1800,hours:8,days:30,cat:'ความเย็น'},
+  fridge:{name:'ตู้เย็น 2 ประตู',watt:150,hours:24,days:30,cat:'ความเย็น'},
+  tv32:{name:'ทีวี 32 นิ้ว',watt:60,hours:5,days:30,cat:'ความบันเทิง'},
+  tv55:{name:'ทีวี 55 นิ้ว',watt:150,hours:5,days:30,cat:'ความบันเทิง'},
+  pc:{name:'คอมพิวเตอร์',watt:300,hours:8,days:25,cat:'สำนักงาน'},
+  laptop:{name:'โน้ตบุ๊ค',watt:45,hours:8,days:25,cat:'สำนักงาน'},
+  washer:{name:'เครื่องซักผ้า',watt:500,hours:1,days:20,cat:'ครัวเรือน'},
+  water:{name:'เครื่องทำน้ำอุ่น',watt:3500,hours:0.5,days:30,cat:'ครัวเรือน'},
+  micro:{name:'ไมโครเวฟ',watt:1000,hours:0.5,days:30,cat:'ครัวเรือน'},
+  rice:{name:'หม้อหุงข้าว',watt:600,hours:0.5,days:30,cat:'ครัวเรือน'},
+  iron:{name:'เตารีด',watt:1000,hours:0.5,days:20,cat:'ครัวเรือน'},
+  router:{name:'Router',watt:15,hours:24,days:30,cat:'อื่นๆ'},
+  fan:{name:'พัดลม',watt:60,hours:8,days:30,cat:'ครัวเรือน'},
+  lamp:{name:'หลอด LED',watt:10,hours:6,days:30,cat:'อื่นๆ'},
+  ev:{name:'EV Charger',watt:7000,hours:4,days:20,cat:'อื่นๆ'},
+};
+
+function applyTemplate() {
+  const key = document.getElementById('a-template').value;
+  if (!key) return;
+  const t = TEMPLATES[key];
+  document.getElementById('a-name').value  = t.name;
+  document.getElementById('a-watt').value  = t.watt;
+  document.getElementById('a-hours').value = t.hours;
+  document.getElementById('a-days').value  = t.days;
+  document.getElementById('a-cat').value   = t.cat;
+  previewAppliance();
+}
+
+function previewAppliance() {
+  const w = parseFloat(document.getElementById('a-watt').value);
+  const h = parseFloat(document.getElementById('a-hours').value);
+  const d = parseFloat(document.getElementById('a-days').value);
+  const q = parseFloat(document.getElementById('a-qty').value) || 1;
+  if (!w||!h||!d) { document.getElementById('a-preview-box').style.display='none'; return; }
+  const kwh  = (w/1000)*h*d*q;
+  const cost = kwh * state.settings.rate;
+  const box  = document.getElementById('a-preview-box');
+  box.style.display = 'block';
+  box.innerHTML = `พลังงาน: <strong>${kwh.toFixed(1)} kWh/เดือน</strong> &nbsp;|&nbsp; ค่าไฟ: <span class="highlight">${cost.toFixed(0)} บาท/เดือน</span>`;
+}
+
+async function saveAppliance() {
+  if (!state.connected) { showToast('❌ ยังไม่ได้เชื่อมต่อ API', 'red'); return; }
+  const name  = document.getElementById('a-name').value.trim();
+  const watt  = parseFloat(document.getElementById('a-watt').value);
+  const qty   = parseFloat(document.getElementById('a-qty').value)  || 1;
+  const hours = parseFloat(document.getElementById('a-hours').value);
+  const days  = parseFloat(document.getElementById('a-days').value);
+  const cat   = document.getElementById('a-cat').value;
+  if (!name||!watt||!hours||!days) { showToast('⚠️ กรอกข้อมูลให้ครบ', 'amber'); return; }
+
+  // คำนวณ kwh และ cost ตาม rate ปัจจุบัน
+  const kwh  = +((watt/1000)*hours*days*qty).toFixed(3);
+  const cost = +(kwh * state.settings.rate).toFixed(2);
+
+  setBtn('btn-save-app', true, '⚡ กำลังบันทึก…');
+  try {
+    const saved = await POST('/api/appliances', { name, watt, qty, hours, days, cat, kwh, cost });
+    state.appliances.push(saved);
+    showToast('✅ เพิ่มอุปกรณ์แล้ว', 'green');
+    clearAppForm();
+    renderApplianceList();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  setBtn('btn-save-app', false, '⚡ เพิ่มอุปกรณ์');
+}
+
+async function deleteAppliance(id) {
+  if (!confirm('ลบอุปกรณ์นี้?')) return;
+  showLoading(true);
+  try {
+    await DEL('/api/appliances/' + id);
+    state.appliances = state.appliances.filter(a => a.id !== id);
+    showToast('🗑 ลบแล้ว', 'amber');
+    renderApplianceList();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  showLoading(false);
+}
+
+function clearAppForm() {
+  ['a-name','a-watt','a-hours'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('a-qty').value   = 1;
+  document.getElementById('a-days').value  = 30;
+  document.getElementById('a-template').value = '';
+  document.getElementById('a-preview-box').style.display = 'none';
+}
+
+function renderApplianceList() {
+  const zone  = document.getElementById('appliance-list-zone');
+  const badge = document.getElementById('app-total-badge');
+  if (!state.appliances.length) {
+    zone.innerHTML = '<div class="empty"><div class="empty-icon">🔌</div><p>ยังไม่มีอุปกรณ์</p></div>';
+    badge.textContent = '';
+    return;
+  }
+  const sorted   = [...state.appliances].sort((a,b)=>b.cost-a.cost);
+  const total    = sorted.reduce((s,a)=>s+a.cost,0);
+  const totalKwh = sorted.reduce((s,a)=>s+a.kwh,0);
+  badge.textContent = `รวม ${total.toFixed(0)} บาท/เดือน`;
+  const maxCost = sorted[0].cost;
+  zone.innerHTML = sorted.map((a,i) => {
+    const pct  = Math.round((a.cost/maxCost)*100);
+    const rc   = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const share= ((a.cost/total)*100).toFixed(1);
+    return `<div class="rank-bar-row">
+      <div class="rank-num ${rc}">${i+1}</div>
+      <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div><span style="font-weight:500;">${a.name}</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:8px;">${a.watt}W × ${a.qty} | ${a.hours}ชม./วัน | ${a.days}วัน</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-weight:600;color:var(--accent);font-size:15px;">${a.cost.toFixed(0)} บาท</span>
+            <span style="font-size:11px;color:var(--text3);">${share}%</span>
+            <button class="btn btn-danger" onclick="deleteAppliance('${a.id}')">🗑</button>
+          </div>
+        </div>
+        <div class="progress-wrap" style="height:5px;">
+          <div class="progress-fill" style="width:${pct}%;background:${i===0?'var(--amber)':i===1?'#9ca3af':i===2?'#fb923c':'var(--accent)'};"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">${a.kwh.toFixed(1)} kWh/เดือน · ${a.cat}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// SIMULATOR
+// ─────────────────────────────────────────
+function renderSimulator() {
+  const ctrl = document.getElementById('sim-controls');
+  if (!state.appliances.length) {
+    ctrl.innerHTML = '<div class="empty"><div class="empty-icon">💡</div><p>กรุณาเพิ่มเครื่องใช้ไฟฟ้าก่อน</p></div>';
+    document.getElementById('sim-summary').innerHTML = '';
+    if (simChart) { simChart.destroy(); simChart = null; }
+    return;
+  }
+  ctrl.innerHTML = state.appliances.map(a => `
+    <div class="sim-row">
+      <div style="min-width:150px;">
+        <div style="font-weight:500;font-size:13px;">${a.name}</div>
+        <div style="font-size:11px;color:var(--text3);">${a.watt}W × ${a.qty} | เดิม ${a.hours}ชม.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex:1;">
+        <span style="font-size:12px;color:var(--text3);min-width:40px;">ชม./วัน</span>
+        <input type="range" min="0" max="24" step="0.5" value="${a.hours}"
+          style="flex:1;accent-color:var(--accent);"
+          oninput="updateSim('${a.id}',this.value)" id="sim-slider-${a.id}">
+        <span id="sim-val-${a.id}" style="font-size:13px;font-weight:500;min-width:36px;text-align:right;">${a.hours}</span>
+      </div>
+      <div style="text-align:right;min-width:90px;">
+        <div style="font-size:15px;font-weight:600;color:var(--accent);" id="sim-cost-${a.id}">${a.cost.toFixed(0)} บาท</div>
+      </div>
+    </div>`).join('');
+  updateSimSummary();
+}
+
+function updateSim(id, hours) {
+  document.getElementById('sim-val-' + id).textContent = parseFloat(hours).toFixed(1);
+  const a = state.appliances.find(x => x.id == id);
+  if (!a) return;
+  const cost = (a.watt/1000)*parseFloat(hours)*a.days*a.qty*state.settings.rate;
+  document.getElementById('sim-cost-' + id).textContent = cost.toFixed(0) + ' บาท';
+  updateSimSummary();
+}
+
+function updateSimSummary() {
+  const original = state.appliances.reduce((s,a)=>s+a.cost,0);
+  let newTotal = 0;
+  const labels = [], origData = [], newData = [];
+  state.appliances.forEach(a => {
+    const sl = document.getElementById('sim-slider-' + a.id);
+    const h  = sl ? parseFloat(sl.value) : a.hours;
+    const c  = (a.watt/1000)*h*a.days*a.qty*state.settings.rate;
+    newTotal += c;
+    labels.push(a.name.length>8?a.name.substring(0,8)+'…':a.name);
+    origData.push(Math.round(a.cost));
+    newData.push(Math.round(c));
+  });
+  const saved = original - newTotal;
+  const pct   = original > 0 ? Math.abs((saved/original)*100).toFixed(1) : 0;
+  document.getElementById('sim-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;">
+      <div><div style="font-size:11px;color:var(--text3);">ค่าไฟเดิม</div><div style="font-size:22px;font-weight:600;">${original.toFixed(0)}</div><div style="font-size:12px;color:var(--text3);">บาท/เดือน</div></div>
+      <div><div style="font-size:11px;color:var(--text3);">ค่าไฟใหม่</div><div style="font-size:22px;font-weight:600;color:var(--accent);">${newTotal.toFixed(0)}</div><div style="font-size:12px;color:var(--text3);">บาท/เดือน</div></div>
+      <div><div style="font-size:11px;color:var(--text3);">ประหยัดได้</div><div style="font-size:22px;font-weight:600;color:${saved>=0?'var(--green)':'var(--red)'};">${saved>=0?'+':''}${saved.toFixed(0)}</div><div style="font-size:12px;color:var(--text3);">บาท (${pct}%)</div></div>
+    </div>`;
+  if (simChart) { simChart.destroy(); simChart = null; }
+  const ctx = document.getElementById('simChart').getContext('2d');
+  simChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'เดิม', data:origData, backgroundColor:'rgba(79,142,247,0.4)', borderColor:'#4f8ef7', borderWidth:1, borderRadius:4 },
+      { label:'ใหม่', data:newData,  backgroundColor:'rgba(52,211,153,0.4)', borderColor:'#34d399', borderWidth:1, borderRadius:4 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{color:'#9095b0',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}},
+               y:{ticks:{color:'#9095b0',callback:v=>v+' ฿'},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true} } }
+  });
+}
+
+// ─────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────
+function renderDashboard() {
+  const { rate, budget, vat, billStart } = state.settings;
+  const today   = new Date();
+  const dim     = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const day     = today.getDate();
+  const elapsed = day >= billStart ? day-billStart+1 : dim-billStart+day+1;
+
+  let accumulated = 0, forecast = 0, dailyRate = 0;
+
+  if (state.meters.length >= 2) {
+    const last = state.meters[state.meters.length-1];
+    const prev = state.meters[state.meters.length-2];
+    const days = Math.max(1, (new Date(last.date)-new Date(prev.date))/86400000);
+    const cost = last.actual || ((last.reading-prev.reading)*rate);
+    dailyRate   = cost / days;
+    accumulated = dailyRate * elapsed;
+    forecast    = dailyRate * dim;
+  } else if (state.appliances.length) {
+    const total = state.appliances.reduce((s,a)=>s+a.cost,0);
+    dailyRate   = total / 30;
+    accumulated = dailyRate * elapsed;
+    forecast    = total;
+  }
+
+  const pct = Math.min(100, Math.round((accumulated/budget)*100));
+
+  document.getElementById('metric-grid').innerHTML = `
+    <div class="metric-card blue"><div class="metric-label">ค่าไฟสะสม</div><div class="metric-value blue">${accumulated.toFixed(0)}</div><div class="metric-unit">บาท (${elapsed} วัน)</div></div>
+    <div class="metric-card amber"><div class="metric-label">คาดการณ์สิ้นเดือน</div><div class="metric-value amber">${forecast.toFixed(0)}</div><div class="metric-unit">บาท</div><div class="metric-badge ${forecast>budget?'badge-red':'badge-green'}">${forecast>budget?'⚠ เกินงบ':'✓ อยู่ในงบ'}</div></div>
+    <div class="metric-card green"><div class="metric-label">เฉลี่ยต่อวัน</div><div class="metric-value green">${dailyRate.toFixed(0)}</div><div class="metric-unit">บาท/วัน</div></div>
+    <div class="metric-card ${budget-accumulated<0?'red':'blue'}"><div class="metric-label">งบคงเหลือ</div><div class="metric-value ${budget-accumulated<0?'red':''}">${(budget-accumulated).toFixed(0)}</div><div class="metric-unit">บาท</div></div>`;
+
+  const alertZone = document.getElementById('alert-zone');
+  alertZone.innerHTML = '';
+  if (!state.connected) {
+    alertZone.innerHTML = `<div class="alert alert-amber fade-in">⚠️ ไม่ได้เชื่อมต่อ API — ไปที่ "ตั้งค่า" เพื่อกำหนด API URL</div>`;
+  } else if (forecast > budget*1.15) {
+    alertZone.innerHTML = `<div class="alert alert-red fade-in">🚨 คาดว่าค่าไฟจะเกินงบ! คาดการณ์ ${forecast.toFixed(0)} บาท เกิน ${(forecast-budget).toFixed(0)} บาท</div>`;
+  } else if (forecast > budget*0.9) {
+    alertZone.innerHTML = `<div class="alert alert-amber fade-in">⚡ ค่าไฟใกล้เต็มงบ — คาดการณ์ ${forecast.toFixed(0)} บาท (${pct}% ของงบ)</div>`;
+  }
+
+  document.getElementById('budget-spent-lbl').textContent = `สะสม ${accumulated.toFixed(0)} บาท`;
+  document.getElementById('budget-total-lbl').textContent = `งบ ${budget.toFixed(0)} บาท`;
+  const fill = document.getElementById('budget-fill');
+  fill.style.width      = pct + '%';
+  fill.style.background = pct>90?'var(--red)':pct>70?'var(--amber)':'var(--accent)';
+  document.getElementById('budget-pct-badge').textContent  = pct + '%';
+  document.getElementById('budget-pct-badge').className    = 'metric-badge ' + (pct>90?'badge-red':pct>70?'badge-amber':'badge-blue');
+  const remain = budget - accumulated;
+  document.getElementById('budget-remain-lbl').textContent = remain>=0
+    ? `งบคงเหลือ ${remain.toFixed(0)} บาท — ใช้ได้อีก ~${dailyRate>0?Math.floor(remain/dailyRate):'—'} วัน`
+    : `เกินงบ ${Math.abs(remain).toFixed(0)} บาท`;
+
+  if (state.meters.length >= 3) {
+    const last = state.meters[state.meters.length-1];
+    const prev = state.meters[state.meters.length-2];
+    const pp   = state.meters[state.meters.length-3];
+    const lc   = last.actual || ((last.reading-prev.reading)*rate);
+    const pc   = prev.actual || ((prev.reading-pp.reading)*rate);
+    const diff = lc - pc;
+    const pctD = pc>0 ? (diff/pc*100).toFixed(1) : 0;
+    document.getElementById('comparison-zone').innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div style="font-size:32px;font-weight:600;color:${diff>0?'var(--red)':'var(--green)'};">${diff>0?'+':''}${diff.toFixed(0)}</div>
+        <div style="font-size:13px;color:var(--text2);">บาท</div>
+      </div>
+      <div style="margin-top:6px;"><span class="metric-badge ${diff>0?'badge-red':'badge-green'}">${diff>0?'▲':'▼'} ${Math.abs(pctD)}%</span></div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text3);">เดือนนี้: ${lc.toFixed(0)} บาท · เดือนก่อน: ${pc.toFixed(0)} บาท</div>`;
+  }
+
+  // History chart
+  const labels=[], data=[];
+  for (let i=1; i<state.meters.length; i++) {
+    const m=state.meters[i], p=state.meters[i-1];
+    labels.push(m.date.substring(0,7));
+    data.push(Math.round(m.actual || ((m.reading-p.reading)*rate)));
+  }
+  if (histChart) { histChart.destroy(); histChart=null; }
+  const wrap = document.getElementById('history-chart-wrap');
+  if (!labels.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:2rem;"><div class="empty-icon">📊</div><p>บันทึกมิเตอร์อย่างน้อย 2 เดือน เพื่อดูกราฟ</p></div>';
+  } else {
+    if (!wrap.querySelector('canvas')) wrap.innerHTML = '<canvas id="historyChart" style="position:relative;height:240px;"></canvas>';
+    const avg = data.reduce((s,v)=>s+v,0)/data.length;
+    histChart = new Chart(document.getElementById('historyChart').getContext('2d'), {
+      data: { labels, datasets: [
+        { type:'bar', data, backgroundColor:data.map(v=>v>budget?'rgba(248,113,113,0.5)':'rgba(79,142,247,0.5)'), borderColor:data.map(v=>v>budget?'#f87171':'#4f8ef7'), borderWidth:1, borderRadius:5 },
+        { type:'line', data:data.map(()=>Math.round(avg)), borderColor:'rgba(251,191,36,0.7)', borderDash:[5,5], pointRadius:0, borderWidth:2, fill:false }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{color:'#9095b0',font:{size:11},autoSkip:false,maxRotation:45},grid:{color:'rgba(255,255,255,0.04)'}},
+          y:{ticks:{color:'#9095b0',callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}
+        }}
+    });
+  }
+
+  // Top 5
+  const top5zone = document.getElementById('top5-zone');
+  if (!state.appliances.length) {
+    top5zone.innerHTML = '<div class="empty"><p>ยังไม่มีข้อมูลเครื่องใช้ไฟฟ้า</p></div>';
+  } else {
+    const top5 = [...state.appliances].sort((a,b)=>b.cost-a.cost).slice(0,5);
+    const tot  = state.appliances.reduce((s,a)=>s+a.cost,0);
+    const maxC = top5[0].cost;
+    top5zone.innerHTML = top5.map((a,i) => {
+      const rc = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+      return `<div class="rank-bar-row">
+        <div class="rank-num ${rc}">${i+1}</div>
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-weight:500;">${a.name}</span>
+            <span style="font-weight:600;color:var(--accent);">${a.cost.toFixed(0)} บาท <span style="font-size:11px;color:var(--text3);">(${((a.cost/tot)*100).toFixed(1)}%)</span></span>
+          </div>
+          <div class="progress-wrap" style="height:4px;">
+            <div class="progress-fill" style="width:${Math.round((a.cost/maxC)*100)}%;background:${i===0?'var(--amber)':i===1?'#9ca3af':i===2?'#fb923c':'var(--accent)'};"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('dash-subtitle').textContent =
+    today.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) +
+    (state.connected ? ' · เชื่อมต่อ Firebase' : ' · ออฟไลน์');
+}
+
+// ─────────────────────────────────────────
+// CLEAR DATA
+// ─────────────────────────────────────────
+async function clearMeters() {
+  if (!state.connected) { showToast('❌ ยังไม่ได้เชื่อมต่อ', 'red'); return; }
+  if (!confirm('ลบประวัติมิเตอร์ทั้งหมด?')) return;
+  showLoading(true);
+  try {
+    await Promise.all(state.meters.map(m => DEL('/api/meters/' + m.id)));
+    state.meters = [];
+    showToast('🗑 ล้างมิเตอร์แล้ว', 'amber');
+    renderMeterTable();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  showLoading(false);
+}
+
+async function clearAppliances() {
+  if (!state.connected) { showToast('❌ ยังไม่ได้เชื่อมต่อ', 'red'); return; }
+  if (!confirm('ลบรายการเครื่องใช้ไฟฟ้าทั้งหมด?')) return;
+  showLoading(true);
+  try {
+    await Promise.all(state.appliances.map(a => DEL('/api/appliances/' + a.id)));
+    state.appliances = [];
+    showToast('🗑 ล้างแล้ว', 'amber');
+    renderApplianceList();
+    renderDashboard();
+  } catch(e) { showToast('❌ ' + e.message, 'red'); }
+  showLoading(false);
+}
+
+// ─────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────
+function showLoading(show) {
+  document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+}
+
+function setBtn(id, disabled, text) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled    = disabled;
+  btn.textContent = text;
+}
+
+function showToast(msg, type='green') {
+  const t = document.createElement('div');
+  t.className = `alert alert-${type} fade-in`;
+  t.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:9999;min-width:240px;max-width:340px;';
+  t.innerHTML = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
